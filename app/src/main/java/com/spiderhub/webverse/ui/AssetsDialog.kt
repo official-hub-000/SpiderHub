@@ -32,6 +32,7 @@ import java.util.Locale
 @Composable
 fun AssetsDialog(
     hud: GameHudState,
+    onImportModel: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -47,25 +48,33 @@ fun AssetsDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "BUNDLED 3D ASSETS",
+                        text = "3D RIGS & PBR ASSETS",
                         color = Color(0xFF00F0FF),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
-                        text = if (hud.assetsReady) "Loaded directly from APK assets/models/" else "Streaming & parsing meshes...",
+                        text = if (hud.assetsReady) "JBox2D Physics + PBR Rigs + GLB/OBJ Loader" else "Streaming & compiling PBR meshes...",
                         color = Color(0xFFB5C4E0),
                         fontSize = 11.sp
                     )
                 }
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF2E63))
-                ) {
-                    Text("CLOSE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onImportModel,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00BFA5))
+                    ) {
+                        Text("IMPORT .GLB/.OBJ", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF2E63))
+                    ) {
+                        Text("CLOSE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
@@ -74,7 +83,7 @@ fun AssetsDialog(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 260.dp),
+                    .heightIn(max = 190.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(hud.assetStats) { item ->

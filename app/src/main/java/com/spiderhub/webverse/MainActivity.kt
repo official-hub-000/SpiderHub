@@ -1,10 +1,15 @@
 package com.spiderhub.webverse
 
+import android.net.Uri
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -63,6 +69,19 @@ class MainActivity : ComponentActivity() {
             val hud by hudState
             var showAssets by remember { mutableStateOf(false) }
 
+            val modelPicker = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument()
+            ) { uri: Uri? ->
+                if (uri != null) {
+                    val fileName = resolveFileName(uri)
+                    renderer.loadCustomModelStream(
+                        streamProvider = { contentResolver.openInputStream(uri) },
+                        displayName = fileName
+                    )
+                    showAssets = false
+                }
+            }
+
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     AndroidView(
@@ -87,18 +106,30 @@ class MainActivity : ComponentActivity() {
                         onStrike = { engine.triggerCombatStrike() },
                         onShiftDimension = { engine.toggleDimension() },
                         onToggleMute = { engine.toggleMute() },
+                        onToggleBloom = { engine.toggleBloom() },
                         onOpenAssets = { showAssets = true }
                     )
 
                     if (showAssets) {
                         AssetsDialog(
                             hud = hud,
+                            onImportModel = { modelPicker.launch(arrayOf("*/*")) },
                             onDismiss = { showAssets = false }
                         )
                     }
                 }
             }
         }
+    }
+
+    private fun resolveFileName(uri: Uri): String {
+        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (idx >= 0 && cursor.moveToFirst()) {
+                return cursor.getString(idx) ?: "model.glb"
+            }
+        }
+        return uri.lastPathSegment ?: "model.glb"
     }
 
     override fun onResume() {

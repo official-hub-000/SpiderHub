@@ -1,7 +1,8 @@
 package com.spiderhub.webverse.game
 
 enum class Dimension(val label: String, val accentHex: Long) {
-    NEON_NOIR("NEON-NOIR // NEXUS-9", 0xFF00F0FF),
+    SUNSET_NEXUS("METROPOLIS // GOLDEN DUSK", 0xFFFF6D3B),
+    NEON_NOIR("NEON-NOIR // NIGHT", 0xFF00F0FF),
     INKVERSE("INKVERSE // RIFT-02", 0xFFFF2E63)
 }
 
@@ -24,10 +25,51 @@ data class CityBuilding(
     val width: Float,
     val depth: Float,
     val height: Float,
+    val hasSetback: Boolean,
     val isSpire: Boolean,
     val tintR: Float,
     val tintG: Float,
-    val tintB: Float
+    val tintB: Float,
+    val neonR: Float,
+    val neonG: Float,
+    val neonB: Float,
+    val billboardTexIdx: Int = -1
+)
+
+data class StreetLamp(
+    val x: Float,
+    val z: Float,
+    val yawDeg: Float,
+    val isCyan: Boolean
+)
+
+data class HoverVehicle(
+    val id: Int,
+    var x: Float,
+    var y: Float,
+    var z: Float,
+    val speed: Float,
+    val axisX: Boolean,
+    val dirSign: Float,
+    val laneCoord: Float,
+    val accentR: Float,
+    val accentG: Float,
+    val accentB: Float
+)
+
+data class ParticleFx(
+    var x: Float = 0f,
+    var y: Float = 0f,
+    var z: Float = 0f,
+    var vx: Float = 0f,
+    var vy: Float = 0f,
+    var vz: Float = 0f,
+    var life: Float = 0f,
+    var maxLife: Float = 1f,
+    var size: Float = 0.25f,
+    var r: Float = 0f,
+    var g: Float = 0.9f,
+    var b: Float = 1f
 )
 
 enum class NpcKind {
@@ -51,7 +93,9 @@ data class NpcEntity(
     var maxHp: Int = 100,
     var alive: Boolean = true,
     var respawnTimer: Float = 0f,
-    var attackCooldown: Float = 0f
+    var attackCooldown: Float = 0f,
+    var hitFlash: Float = 0f,
+    var walkPhase: Float = 0f
 )
 
 data class SwingAnchor(
@@ -109,13 +153,17 @@ data class GameHudState(
     val shardsCollected: Int = 0,
     val totalShards: Int = 12,
     val husksDefeated: Int = 0,
-    val dimension: Dimension = Dimension.NEON_NOIR,
+    val dimension: Dimension = Dimension.SUNSET_NEXUS,
     val isSwinging: Boolean = false,
     val isWallRunning: Boolean = false,
+    val hasGrappleTarget: Boolean = false,
     val portalActive: Boolean = false,
-    val storyTitle: String = "ACT I: NEXUS AWAKENING",
-    val storyObjective: String = "Swing across NEXUS-9 and collect 4 Chrono-Shards.",
+    val portalDistanceM: Int = 132,
+    val storyTitle: String = "ACT I: SKYLINE AWAKENING",
+    val storyObjective: String = "Hold SWING to grapple skyscrapers and collect 4 Chrono-Shards.",
     val muted: Boolean = false,
+    val ultraBloomEnabled: Boolean = true,
+    val fps: Int = 60,
     val assetsReady: Boolean = false,
     val assetStats: List<LoadedAssetInfo> = emptyList(),
     val licenseText: String = ""
@@ -123,20 +171,19 @@ data class GameHudState(
 
 object AssetCatalog {
     val models: List<BundledModelSpec> = listOf(
-        BundledModelSpec("apocalyptic_city", "apocalyptic_city.glb", "Ruined Skyline Sectors (GLB)", "GLB"),
-        BundledModelSpec("kage", "kage.obj", "Kage Hero Suit Avatar", "OBJ"),
-        BundledModelSpec("husk", "husk.obj", "Corrupted Husk Hostile NPC", "OBJ"),
-        BundledModelSpec("citizen", "citizen.obj", "Nexus Citizen NPC (Variant A)", "OBJ"),
-        BundledModelSpec("citizen_b", "citizen_b.obj", "Nexus Citizen NPC (Variant B)", "OBJ"),
-        BundledModelSpec("spire", "spire.obj", "Cyberpunk Anchor Spire", "OBJ"),
-        BundledModelSpec("beacon", "beacon.obj", "Rooftop Signal Beacon", "OBJ"),
-        BundledModelSpec("portal", "portal.obj", "Multiverse Rift Portal", "OBJ"),
-        BundledModelSpec("shard", "shard.obj", "Chrono-Energy Shard Pickup", "OBJ")
+        BundledModelSpec("kage", "kage.obj", "Spider-Hero Articulated Rig + PBR Suit", "PBR+OBJ"),
+        BundledModelSpec("husk", "husk.obj", "Corrupted Exo-Husk Combat Rig", "PBR+OBJ"),
+        BundledModelSpec("citizen", "citizen.obj", "Metropolis Citizen Rig (Variant A)", "PBR+OBJ"),
+        BundledModelSpec("citizen_b", "citizen_b.obj", "Metropolis Citizen Rig (Variant B)", "PBR+OBJ"),
+        BundledModelSpec("spire", "spire.obj", "Skyscraper Crown Spire", "PBR+OBJ"),
+        BundledModelSpec("beacon", "beacon.obj", "Rooftop Quantum Relay Beacon", "PBR+OBJ"),
+        BundledModelSpec("portal", "portal.obj", "Multiverse Stargate Rift Portal", "PBR+OBJ"),
+        BundledModelSpec("shard", "shard.obj", "Chrono-Energy Gyro Crystal", "PBR+OBJ")
     )
 
     val storyBeats: List<StoryBeat> = listOf(
-        StoryBeat(0, "ACT I: NEXUS AWAKENING", "Swing across NEXUS-9 and collect 4 Chrono-Shards."),
-        StoryBeat(1, "ACT II: HUSK SURGE", "Neutralize 4 corrupted Husks patrolling the avenues."),
-        StoryBeat(2, "ACT III: RIFT CONVERGENCE", "Shift into INKVERSE and reach the active Nexus Portal.")
+        StoryBeat(0, "ACT I: SKYLINE AWAKENING", "Hold SWING to grapple skyscrapers and collect 4 Chrono-Shards."),
+        StoryBeat(1, "ACT II: HUSK SURGE", "Neutralize 4 corrupted Husks patrolling the streets."),
+        StoryBeat(2, "ACT III: RIFT CONVERGENCE", "Reach the active Multiverse Portal to shift dimensions.")
     )
 }

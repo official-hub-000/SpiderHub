@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -31,9 +34,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,12 +58,13 @@ fun GameHud(
     onStrike: () -> Unit,
     onShiftDimension: () -> Unit,
     onToggleMute: () -> Unit,
+    onToggleBloom: () -> Unit,
     onOpenAssets: () -> Unit
 ) {
     val accent = Color(hud.dimension.accentHex)
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isCompactPortrait = maxWidth < 600.dp
+        val isCompactWidth = maxWidth < 600.dp
 
         // Full-screen camera look drag surface behind HUD controls
         Box(
@@ -72,92 +78,137 @@ fun GameHud(
                 }
         )
 
-        // Top Tactical HUD
-        Column(
+        // Subtle Center Grapple Target Crosshair
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .align(Alignment.Center)
+                .size(34.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                TelemetryCard(hud = hud, accent = accent)
-
-                if (!isCompactPortrait) {
-                    ObjectiveBanner(hud = hud)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val ringColor = when {
+                    hud.isSwinging -> Color(0xFF00FFB3)
+                    hud.hasGrappleTarget -> accent
+                    else -> Color(0x44FFFFFF)
                 }
-
-                ScoreAndButtonsCard(
-                    hud = hud,
-                    accent = accent,
-                    onOpenAssets = onOpenAssets,
-                    onToggleMute = onToggleMute
+                drawCircle(
+                    color = ringColor,
+                    radius = size.minDimension * if (hud.hasGrappleTarget) 0.42f else 0.28f,
+                    style = Stroke(width = if (hud.hasGrappleTarget) 3.5f else 2f)
                 )
-            }
-
-            if (isCompactPortrait) {
-                ObjectiveBanner(
-                    hud = hud,
-                    modifier = Modifier.fillMaxWidth()
+                drawCircle(
+                    color = ringColor,
+                    radius = 3.5f
                 )
             }
         }
 
-        // Bottom-Left: Virtual Analog Thumbstick
-        VirtualThumbstick(
-            accent = accent,
+        // Safe-area container for landscape HUD elements
+        Box(
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 18.dp, bottom = 20.dp),
-            onMove = onMoveStick
-        )
-
-        // Bottom-Right: Mobile Action Cluster
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 18.dp),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionButton(
-                    label = "SHIFT",
-                    color = if (hud.dimension == Dimension.NEON_NOIR) Color(0xFFFF2E63) else Color(0xFF00F0FF),
-                    sizeDp = 52,
-                    onClick = onShiftDimension
-                )
-                ActionButton(
-                    label = "ZIP",
-                    color = Color(0xFF00E5FF),
-                    sizeDp = 52,
-                    onClick = onZip
-                )
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Bottom
+            // Top Tactical HUD Bar
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                ActionButton(
-                    label = "STRIKE",
-                    color = Color(0xFFFF5252),
-                    sizeDp = 58,
-                    onClick = onStrike
-                )
-                ActionButton(
-                    label = if (hud.isWallRunning) "WALL" else "JUMP",
-                    color = Color(0xFF00FFB3),
-                    sizeDp = 60,
-                    onClick = onJump
-                )
-                SwingHoldButton(
-                    isSwinging = hud.isSwinging,
-                    accent = accent,
-                    onSwingChanged = onSwingChanged
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    TelemetryCard(hud = hud, accent = accent)
+
+                    if (!isCompactWidth) {
+                        ObjectiveBanner(hud = hud, accent = accent)
+                    }
+
+                    ScoreAndButtonsCard(
+                        hud = hud,
+                        accent = accent,
+                        onOpenAssets = onOpenAssets,
+                        onToggleMute = onToggleMute,
+                        onToggleBloom = onToggleBloom
+                    )
+                }
+
+                if (isCompactWidth) {
+                    ObjectiveBanner(
+                        hud = hud,
+                        accent = accent,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // Bottom-Left: Virtual Analog Thumbstick
+            VirtualThumbstick(
+                accent = accent,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 8.dp, bottom = 6.dp)
+                    .testTag("virtual_thumbstick"),
+                onMove = onMoveStick
+            )
+
+            // Bottom-Right: Ergonomic Landscape Action Cluster
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 6.dp, bottom = 6.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ActionButton(
+                        label = "SHIFT",
+                        color = when (hud.dimension) {
+                            Dimension.SUNSET_NEXUS -> Color(0xFF00F0FF)
+                            Dimension.NEON_NOIR -> Color(0xFFFF2E63)
+                            Dimension.INKVERSE -> Color(0xFFFF9100)
+                        },
+                        sizeDp = 52,
+                        tag = "shift_button",
+                        onClick = onShiftDimension
+                    )
+                    ActionButton(
+                        label = "ZIP",
+                        color = Color(0xFF00E5FF),
+                        sizeDp = 52,
+                        tag = "zip_button",
+                        onClick = onZip
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    ActionButton(
+                        label = "STRIKE",
+                        color = Color(0xFFFF5252),
+                        sizeDp = 58,
+                        tag = "strike_button",
+                        onClick = onStrike
+                    )
+                    ActionButton(
+                        label = if (hud.isWallRunning) "WALL" else "JUMP",
+                        color = Color(0xFF00FFB3),
+                        sizeDp = 60,
+                        tag = "jump_button",
+                        onClick = onJump
+                    )
+                    SwingHoldButton(
+                        isSwinging = hud.isSwinging,
+                        hasTarget = hud.hasGrappleTarget,
+                        accent = accent,
+                        onSwingChanged = onSwingChanged
+                    )
+                }
             }
         }
     }
@@ -167,8 +218,11 @@ fun GameHud(
 private fun TelemetryCard(hud: GameHudState, accent: Color) {
     Column(
         modifier = Modifier
-            .background(Color(0xB8070B16), RoundedCornerShape(10.dp))
-            .border(1.dp, accent.copy(alpha = 0.65f), RoundedCornerShape(10.dp))
+            .background(
+                Brush.verticalGradient(listOf(Color(0xCC090E1C), Color(0xAA050811))),
+                RoundedCornerShape(10.dp)
+            )
+            .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
             .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Text(
@@ -201,21 +255,33 @@ private fun TelemetryCard(hud: GameHudState, accent: Color) {
 }
 
 @Composable
-private fun ObjectiveBanner(hud: GameHudState, modifier: Modifier = Modifier) {
+private fun ObjectiveBanner(hud: GameHudState, accent: Color, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(Color(0xB8070B16), RoundedCornerShape(10.dp))
+            .background(Color(0xBD070B16), RoundedCornerShape(10.dp))
             .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(10.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = hud.storyTitle,
-            color = Color(0xFF00FFB3),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = hud.storyTitle,
+                color = Color(0xFF00FFB3),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = if (hud.portalActive) "PORTAL READY • ${hud.portalDistanceM}m" else "RIFT ${hud.portalDistanceM}m",
+                color = if (hud.portalActive) Color(0xFF00FFB3) else accent,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+        }
         Text(
             text = hud.storyObjective,
             color = Color.White,
@@ -229,13 +295,14 @@ private fun ScoreAndButtonsCard(
     hud: GameHudState,
     accent: Color,
     onOpenAssets: () -> Unit,
-    onToggleMute: () -> Unit
+    onToggleMute: () -> Unit,
+    onToggleBloom: () -> Unit
 ) {
     Column(horizontalAlignment = Alignment.End) {
         Row(
             modifier = Modifier
-                .background(Color(0xB8070B16), RoundedCornerShape(10.dp))
-                .border(1.dp, accent.copy(alpha = 0.65f), RoundedCornerShape(10.dp))
+                .background(Color(0xBD070B16), RoundedCornerShape(10.dp))
+                .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
                 .padding(horizontal = 10.dp, vertical = 7.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -270,13 +337,21 @@ private fun ScoreAndButtonsCard(
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             SmallHudChip(
-                text = if (hud.assetsReady) "3D ASSETS (9)" else "LOADING 3D...",
+                text = "${hud.fps} FPS • " + if (hud.ultraBloomEnabled) "ULTRA" else "MAX FPS",
+                borderColor = if (hud.ultraBloomEnabled) Color(0xFF00FFB3) else Color(0xFFFFD54F),
+                tag = "bloom_toggle_chip",
+                onClick = onToggleBloom
+            )
+            SmallHudChip(
+                text = if (hud.assetsReady) "3D RIGS (8)" else "LOADING...",
                 borderColor = accent,
+                tag = "assets_chip",
                 onClick = onOpenAssets
             )
             SmallHudChip(
                 text = if (hud.muted) "SFX: OFF" else "SFX: ON",
                 borderColor = Color(0xFF9EB0D0),
+                tag = "sfx_chip",
                 onClick = onToggleMute
             )
         }
@@ -310,13 +385,14 @@ private fun HudBar(label: String, fraction: Float, barColor: Color) {
 }
 
 @Composable
-private fun SmallHudChip(text: String, borderColor: Color, onClick: () -> Unit) {
+private fun SmallHudChip(text: String, borderColor: Color, tag: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
+            .testTag(tag)
             .background(Color(0xCC0B1020), RoundedCornerShape(8.dp))
             .border(1.dp, borderColor, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 5.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
     ) {
         Text(
             text = text,
@@ -375,7 +451,7 @@ private fun VirtualThumbstick(
                 center = center
             )
             drawCircle(
-                color = accent.copy(alpha = 0.6f),
+                color = accent.copy(alpha = 0.65f),
                 radius = size.minDimension * 0.48f,
                 center = center,
                 style = Stroke(width = 3f)
@@ -394,10 +470,12 @@ private fun ActionButton(
     label: String,
     color: Color,
     sizeDp: Int,
+    tag: String,
     onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
+            .testTag(tag)
             .size(sizeDp.dp)
             .clip(CircleShape)
             .background(Color(0xC8090E1D))
@@ -418,17 +496,20 @@ private fun ActionButton(
 @Composable
 private fun SwingHoldButton(
     isSwinging: Boolean,
+    hasTarget: Boolean,
     accent: Color,
     onSwingChanged: (Boolean) -> Unit
 ) {
     var pressed by remember { mutableStateOf(false) }
+    val ringColor = if (isSwinging || hasTarget) Color(0xFF00FFB3) else accent
 
     Box(
         modifier = Modifier
+            .testTag("swing_button")
             .size(72.dp)
             .clip(CircleShape)
-            .background(if (isSwinging || pressed) accent.copy(alpha = 0.35f) else Color(0xD00A1022))
-            .border(2.5.dp, accent, CircleShape)
+            .background(if (isSwinging || pressed) ringColor.copy(alpha = 0.35f) else Color(0xD00A1022))
+            .border(2.5.dp, ringColor, CircleShape)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
@@ -446,9 +527,9 @@ private fun SwingHoldButton(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = if (isSwinging) "WEB\nON" else "SWING",
+            text = if (isSwinging) "WEB\nON" else if (hasTarget) "LOCK\nSWING" else "SWING",
             color = Color.White,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.ExtraBold,
             fontFamily = FontFamily.Monospace
         )
